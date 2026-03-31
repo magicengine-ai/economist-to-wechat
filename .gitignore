@@ -1,0 +1,13 @@
+# 敏感凭证
+.wechat-credentials.json
+
+# 缓存文件
+.wechat-token-cache.json
+
+# 临时文件
+temp/
+*.pyc
+__pycache__/
+
+# 日志
+*.log
