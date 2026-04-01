@@ -480,6 +480,26 @@ Content-Type: application/json
 
 ## 常见问题
 
+### Q: 中文显示为 `\uXXXX` 或乱码
+**原因**: Python 的 `json.dumps()` 默认会将非 ASCII 字符转义为 `\uXXXX` 格式
+
+**解决方案**: 
+```python
+# ❌ 错误：中文会被转义为 \uXXXX
+requests.post(url, json={'articles': articles})
+
+# ✅ 正确：使用 json.dumps 并设置 ensure_ascii=False
+data = json.dumps({'articles': articles}, ensure_ascii=False)
+requests.post(url, data=data, headers={'Content-Type': 'application/json; charset=utf-8'})
+```
+
+**关键点**:
+1. 使用 `json.dumps(..., ensure_ascii=False)` 手动序列化
+2. 设置 `Content-Type: application/json; charset=utf-8`
+3. 使用 `data` 参数而非 `json` 参数发送请求
+
+---
+
 ### Q: 图片上传失败（403 Forbidden）
 **原因**: 经济学人图片有 Cloudflare 防盗链保护
 
@@ -506,6 +526,14 @@ img.save('output.jpg', 'JPEG', quality=95)
 **解决方案**: 
 - 使用格式：`经济学人 | 中文标题 | 英文标题`
 - 脚本会自动截断超长部分
+- 建议控制在 20 字以内
+
+### Q: 摘要太长（description size out of limit）
+**原因**: 微信限制摘要长度为 120 字符
+
+**解决方案**: 
+- 摘要控制在 50 字以内
+- 使用简洁的描述，如"伊朗石油收入是战前两倍"
 
 ### Q: 封面图不显示
 **原因**: 
@@ -517,7 +545,35 @@ img.save('output.jpg', 'JPEG', quality=95)
 - 检查图片尺寸和格式
 - 确认上传成功（脚本输出 "[OK] 图片 X 上传成功"）
 
+### Q: 中文翻译最后没有结束符号■
+**原因**: 原文最后一段有 `<span class="ufinish">■</span>`，但中文翻译需要手动添加
+
+**解决方案**:
+```python
+# 最后一段中文翻译必须加■
+CHINESE_TRANSLATIONS = [
+    "...",
+    "这种极端的冗余引入了如此复杂的层次...否则它不会被扼制。■"  # ← 加■
+]
+```
+
 ## 最佳实践
+
+### 中文编码（⚠️ 关键）
+
+**问题**: Python 的 `json.dumps()` 默认会将中文转义为 `\uXXXX`
+
+**正确做法**:
+```python
+# ✅ 创建草稿时
+data = json.dumps({'articles': articles}, ensure_ascii=False)
+response = requests.post(url, data=data, headers={'Content-Type': 'application/json; charset=utf-8'})
+```
+
+**关键点**:
+1. 使用 `json.dumps(..., ensure_ascii=False)` 手动序列化
+2. 设置 `Content-Type: application/json; charset=utf-8`
+3. 使用 `data` 参数而非 `json` 参数发送请求
 
 ### 图片处理
 - **推荐尺寸**: 900x383（微信封面图标准）或 1280x720（高清）
@@ -529,17 +585,29 @@ img.save('output.jpg', 'JPEG', quality=95)
 - **首字母大写**: 第一段英文首字母特殊样式（如原文有 initial 标签）
 - **结束符号**: 最后一段英文和中文末尾添加红色 ■
 - **图表**: 第 3 段后插入，居中显示（仅一次）
-- **缩写词**: 自动检测常见缩写词并添加 `<small>` 标签
+- **缩写词**: 检测原文的 `<small>` 标签，转换为微信公众号格式
+
+### 标题和摘要
+- **标题**: 控制在 20 字以内（微信限制 50 字符）
+- **摘要**: 控制在 50 字以内（微信限制 120 字符）
+- **格式**: `经济学人 | 中文标题` 或简洁的中文标题
+
+### 中文翻译
+- **每段对照**: 每段英文后紧跟对应的中文翻译
+- **最后一段**: 必须添加红色 ■ 结束符号
+- **格式**: 使用 14px 字号，灰色字体 (rgb(24,32,38))
 
 ### 发布流程
-1. 使用浏览器抓取原文 body-text 标签
-2. 提取纯文本（移除原文 small 标签）
-3. 自动检测缩写词并添加 small 标签
-4. 下载封面图（使用 download_cover_direct.py）
-5. 配置微信凭证
-6. 运行发布脚本
-7. 公众号后台预览并检查
-8. 确认无误后发布
+1. 使用浏览器 JavaScript 抓取原文 innerHTML（保留 initial/small 标签）
+2. 从原文 h2 标签获取副标题（不要自己编）
+3. 下载封面图（使用 download_cover_direct.py 或浏览器截图）
+4. 准备中文翻译（每段对应，最后一段加■）
+5. 配置微信凭证（`.wechat-credentials.json`）
+6. 上传封面图到微信素材库（使用永久素材接口）
+7. 构建 HTML 内容（转换 small 标签，处理首字母大写）
+8. 创建草稿（⚠️ 使用 `ensure_ascii=False` 序列化）
+9. 公众号后台预览并检查
+10. 确认无误后发布
 
 ## 使用示例
 

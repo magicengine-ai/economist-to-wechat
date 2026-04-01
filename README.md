@@ -114,7 +114,8 @@ economist-to-wechat/
 2. **副标题从原文获取**：不要自己编，用 `document.querySelector('article h2')`
 3. **中文末尾加■**：最后一段中文翻译后加 `<span class="ufinish">■</span>`
 4. **配图下载**：用浏览器截图方式绕过防盗链
-5. **通用技能**：不包含特定文章数据，临时脚本用完即删
+5. **中文编码**：创建草稿时用 `json.dumps(..., ensure_ascii=False)` 避免中文转义
+6. **通用技能**：不包含特定文章数据，临时脚本用完即删
 
 ### 常见错误
 
@@ -124,6 +125,8 @@ economist-to-wechat/
 | 自己编副标题 | 与原文不符 | 从原文 h2 标签获取 |
 | 中文不加■ | 格式不完整 | 最后一段加 `<span class="ufinish">■</span>` |
 | 直接下载图片 | 403 Forbidden | 浏览器截图 |
+| 中文显示为 \\uXXXX | json.dumps 默认转义 | 用 `ensure_ascii=False` |
+| 标题/摘要太长 | 45003/45004 错误 | 标题<20 字，摘要<50 字 |
 
 ---
 
