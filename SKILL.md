@@ -480,6 +480,20 @@ Content-Type: application/json
 
 ## 常见问题
 
+### Q: 英文段落中出现中文字符
+**原因**: 手动简化英文段落时误输入中文
+
+**解决方案**:
+1. **使用原始 innerHTML** - 直接使用浏览器抓取的完整英文段落，不手动修改
+2. **发布前检查** - 运行自动检查脚本检测中文字符
+```python
+import re
+for i, para in enumerate(PARAGRAPHS):
+    if re.search(r'[\u4e00-\u9fff]', para['innerHTML']):
+        print(f"⚠️ 警告：第{i+1}段英文中包含中文字符")
+```
+3. **修复方法** - 从浏览器重新抓取该段落的 innerHTML
+
 ### Q: 中文显示为 `\uXXXX` 或乱码
 **原因**: Python 的 `json.dumps()` 默认会将非 ASCII 字符转义为 `\uXXXX` 格式
 
@@ -524,7 +538,7 @@ img.save('output.jpg', 'JPEG', quality=95)
 **原因**: 微信限制标题长度为 50 字符
 
 **解决方案**: 
-- 使用格式：`经济学人 | 中文标题 | 英文标题`
+- 使用格式：`经济学人｜中文标题｜英文标题`
 - 脚本会自动截断超长部分
 - 建议控制在 20 字以内
 
@@ -557,6 +571,21 @@ CHINESE_TRANSLATIONS = [
 ]
 ```
 
+### Q: 英文段落中的链接被过滤
+**原因**: 微信公众号不支持正文中的 `<a>` 链接标签
+
+**解决方案**:
+- 脚本会自动移除 `<a>` 标签，保留文本
+- 如需添加链接，可在文章末尾统一添加"阅读原文"链接
+
+### Q: 格式标签（small/initial）不生效
+**原因**: 标签缺少完整的内联样式
+
+**解决方案**:
+- 确保 `<small>` 标签包含完整样式并使用 `<span leaf="">` 包裹
+- 确保 `<span data-caps="initial">` 包含正确的样式定义
+- 使用脚本自动转换，不要手动编辑 HTML
+
 ## 最佳实践
 
 ### 中文编码（⚠️ 关键）
@@ -587,10 +616,94 @@ response = requests.post(url, data=data, headers={'Content-Type': 'application/j
 - **图表**: 第 3 段后插入，居中显示（仅一次）
 - **缩写词**: 检测原文的 `<small>` 标签，转换为微信公众号格式
 
+### 英文段落处理（⚠️ 关键）
+
+**规则 1：使用完整 innerHTML**
+```
+✅ 正确：使用浏览器抓取的完整 innerHTML（包含所有 HTML 标签）
+❌ 错误：手动简化、删除标签或修改内容
+```
+
+**理由：**
+- 原文的 `<small>`、`<span data-caps="initial">` 等标签需要被脚本转换
+- 手动简化会丢失标签，导致格式错误或混入其他语言字符
+
+**示例：**
+```python
+# ✅ 正确：完整的 innerHTML（包含 small 标签）
+{"innerHTML": "Most...going to the Islamic Revolutionary Guard Corps (<small>IRGC</small>)...", "has_initial": False}
+
+# ❌ 错误：手动简化后丢失 small 标签，可能混入中文
+{"innerHTML": "Most...going to the IRGC...", "has_initial": False}
+```
+
+**规则 2：发布前自动检查**
+```python
+# 检测英文段落中的中文字符
+import re
+for i, para in enumerate(PARAGRAPHS):
+    if re.search(r'[\u4e00-\u9fff]', para['innerHTML']):
+        print(f"⚠️ 警告：第{i+1}段英文中包含中文字符")
+
+# 检查是否有未转换的标签
+def check_tags(inner_html):
+    issues = []
+    if '<i>' in inner_html or '</i>' in inner_html:
+        issues.append("包含不支持的<i>标签")
+    if '<a ' in inner_html:
+        issues.append("包含链接标签（微信会过滤）")
+    if '<small>' in inner_html and 'style=' not in inner_html:
+        issues.append("small 标签缺少样式")
+    return issues
+```
+
+**规则 3：标签转换规则**
+微信公众号对 HTML 标签有严格限制：
+
+| 标签 | 微信支持 | 处理方式 |
+|------|---------|---------|
+| `<span>` | ✅ 支持 | 必须添加内联样式 |
+| `<small>` | ✅ 支持 | 转换为带完整样式的格式 + `<span leaf="">` 包裹 |
+| `<p>` | ✅ 支持 | 基础段落标签 |
+| `<h1>`-`<h6>` | ✅ 支持 | 标题标签 |
+| `<img>` | ✅ 支持 | 图片标签 |
+| `<a>` | ❌ 不支持 | 移除标签，保留文本 |
+| `<i>` | ❌ 不支持 | 移除标签 |
+| `data-*` 属性 | ⚠️ 可能被过滤 | 保留但可能无效 |
+
+**转换示例：**
+```python
+# 移除 <i> 标签
+html = html.replace('<i>', '').replace('</i>', '')
+
+# 移除链接标签，保留文本
+html = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', html)
+
+# 转换 <small> 标签（添加完整样式）
+<small>AI</small> → <small style="完整样式"><span leaf="">AI</span></small>
+
+# 转换 initial span（首字母大写）
+<span data-caps="initial">F</span> → <span data-caps="initial" style="完整样式">F</span>
+```
+
 ### 标题和摘要
-- **标题**: 控制在 20 字以内（微信限制 50 字符）
+
+**标题格式（⚠️ 重要）：**
+```
+经济学人｜中文标题｜英文原标题
+```
+
+**示例：**
+```
+经济学人｜伊朗的能源战争｜How Iran is making a mint from Trump's war
+```
+
+**长度限制：**
+- **标题**: 微信限制 50 字符，建议总长控制在 35 字以内
+  - "经济学人｜" 固定 5 字符
+  - 中文标题建议 10-15 字
+  - 英文原标题如超长可截断或省略
 - **摘要**: 控制在 50 字以内（微信限制 120 字符）
-- **格式**: `经济学人 | 中文标题` 或简洁的中文标题
 
 ### 中文翻译
 - **每段对照**: 每段英文后紧跟对应的中文翻译
@@ -603,11 +716,12 @@ response = requests.post(url, data=data, headers={'Content-Type': 'application/j
 3. 下载封面图（使用 download_cover_direct.py 或浏览器截图）
 4. 准备中文翻译（每段对应，最后一段加■）
 5. 配置微信凭证（`.wechat-credentials.json`）
-6. 上传封面图到微信素材库（使用永久素材接口）
-7. 构建 HTML 内容（转换 small 标签，处理首字母大写）
-8. 创建草稿（⚠️ 使用 `ensure_ascii=False` 序列化）
-9. 公众号后台预览并检查
-10. 确认无误后发布
+6. **发布前检查**（检测英文中的中文、标签转换等）
+7. 上传封面图到微信素材库（使用永久素材接口）
+8. 构建 HTML 内容（转换 small 标签，处理首字母大写）
+9. 创建草稿（⚠️ 使用 `ensure_ascii=False` 序列化）
+10. 公众号后台预览并检查
+11. 确认无误后发布
 
 ## 使用示例
 
