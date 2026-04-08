@@ -399,9 +399,13 @@ def create_draft(token, article_data):
 # ==================== 主流程 ====================
 
 def build_cover_image_html(media_id):
-    """构建封面图 HTML"""
+    """构建封面图 HTML
+    
+    正确的微信图片链接格式:
+    https://mmbiz.qpic.cn/mmbiz_jpg/{media_id}/0?wx_fmt=jpeg
+    """
     return f'''<section style="margin: 16px 0; text-align: center;">
-        <img src="https://mmbiz.qpic.cn/mmbiz_jpg/{media_id}/640?wxfrom=12&amp;tp=wxpic"
+        <img src="https://mmbiz.qpic.cn/mmbiz_jpg/{media_id}/0?wx_fmt=jpeg"
              style="max-width: 100%; height: auto; display: inline-block;" />
     </section>'''
 
