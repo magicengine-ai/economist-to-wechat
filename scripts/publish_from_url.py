@@ -33,14 +33,14 @@ from datetime import datetime
 SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-# 导入现有模块
+# 导入转换模块
 try:
     from economist_to_wechat import (
         convert_small_tags, format_first_paragraph, format_paragraph,
         format_chinese_paragraph, convert_article
     )
-except ImportError:
-    print("[ERROR] 未找到 economist_to_wechat 模块")
+except ImportError as e:
+    print(f"[ERROR] 导入模块失败：{e}")
     print("请确保在 economist-to-wechat/scripts 目录下运行此脚本")
     sys.exit(1)
 
