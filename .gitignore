@@ -6,6 +6,7 @@
 
 # 临时文件
 temp/
+tmp/
 *.pyc
 __pycache__/
 
